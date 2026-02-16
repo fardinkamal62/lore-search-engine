@@ -12,7 +12,26 @@ services:
       DJANGO_SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
       DJANGO_ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
     env_file:
       - .env
     volumes:
       - ./data:/app/data
+    depends_on:
+      - database
+  database:
+    image: postgres:18-alpine
+    container_name: lore-database
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+
+volumes:
+  postgres_data:

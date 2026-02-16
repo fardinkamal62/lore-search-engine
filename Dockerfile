@@ -7,6 +7,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+# Install system dependencies for PostgreSQL
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN mkdir /app
 # Set work directory
 WORKDIR /app
@@ -19,9 +25,6 @@ RUN pip install --upgrade pip && \
 # Copy project files
 COPY . /app/
 
-# Create directory for SQLite database
-RUN mkdir -p /app/data
-
 # Collect static files
 RUN python manage.py collectstatic --noinput || true
 
@@ -33,9 +36,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Migrate database
-#RUN python manage.py migrate
-
 # Run the application
-#CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0:8000"]

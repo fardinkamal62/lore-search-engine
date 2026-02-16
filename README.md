@@ -1,6 +1,6 @@
 # Lore
 ### Personal Search Engine
-<sub>Version 1.1.0-Alpha</sub>
+<sub>Version 1.2.0-Alpha</sub>
 
 Lore is a personal search engine that indexes and searches through your notes, PDFs and documents with
 intelligent ranking. Unlike traditional file search, it builds an internal knowledge graph of your content,
