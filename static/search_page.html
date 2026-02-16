@@ -27,18 +27,20 @@
                 <h2 class="me-4 mb-0">
                     <a href="/" class="text-decoration-none text-dark">Lore</a>
                 </h2>
-                <div class="search-wrapper flex-grow-1">
+                <div class="search-wrapper flex-grow-1 position-relative">
                     <div class="input-group">
                         <input type="text" class="form-control" placeholder="Search Your Files"
-                               aria-label="Search" id="search-input" value="{{ query }}" autofocus>
+                               aria-label="Search" id="search-input" value="{{ query }}">
                         <button class="btn btn-outline-primary" type="button" id="search">
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </button>
                     </div>
+                    <div id="autosuggestion-results" class="search-results position-absolute w-100 d-none"
+                         style="z-index: 1000; top: 100%;" aria-live="polite"></div>
                 </div>
             </div>
 
-            <!-- Search Results -->
+
             <div id="search-results" class="search-results-page" aria-live="polite">
                 <!-- Results will be loaded here -->
             </div>
