@@ -1,0 +1,54 @@
+body {
+    margin: 0; /* remove extra margin so vertical centering is exact */
+}
+
+/* keep the search bar from stretching too wide and ensure it stays centered */
+.search-wrapper {
+    max-width: 640px;
+    padding: 0 1rem;
+
+    /* positioning so the results panel can be attached to the input */
+    position: relative;
+}
+
+/* ensure the input group fills the wrapper width */
+.search-wrapper .input-group {
+    width: 100%;
+}
+
+/* results area: attached dropdown below the input, constrained width and scrollable */
+.search-results {
+    position: absolute;
+    top: calc(100% + 0.25rem); /* slightly below the input */
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    z-index: 1050;
+    overflow: auto;
+    max-height: 50vh;
+    padding: 0.25rem;
+}
+
+/* small visual tweaks for list items */
+.list-group-item h6 {
+    font-size: 1rem;
+    margin-bottom: 0;
+}
+.list-group-item .text-truncate {
+    max-width: 100%;
+}
+
+/* ensure the list-group fits the panel neatly */
+.search-results .list-group {
+    margin: 0;
+    border: none;
+}
+.search-results .list-group .list-group-item {
+    border: none;
+    border-radius: 4px;
+    margin: 0.15rem 0;
+}

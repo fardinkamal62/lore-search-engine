@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search Results - Lore</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'styles/index.css' %}?v={{ timestamp }}">
+    <link rel="stylesheet" href="{% static 'styles/search.css' %}?v={{ timestamp }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+          integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.slim.js"
+            integrity="sha512-docBEeq28CCaXCXN7cINkyQs0pRszdQsVBFWUd+pLNlEk3LDlSDDtN7i1H+nTB8tshJPQHS0yu0GW9YGFd/CRg=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+
+<body>
+{% csrf_token %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header with logo and search -->
+            <div class="d-flex align-items-center mb-4">
+                <h2 class="me-4 mb-0">
+                    <a href="/" class="text-decoration-none text-dark">Lore</a>
+                </h2>
+                <div class="search-wrapper flex-grow-1">
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Search Your Files"
+                               aria-label="Search" id="search-input" value="{{ query }}" autofocus>
+                        <button class="btn btn-outline-primary" type="button" id="search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Results -->
+            <div id="search-results" class="search-results-page" aria-live="polite">
+                <!-- Results will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"></script>
+<script src="{% static 'scripts/search.js' %}?v={{ timestamp }}"></script>
+</body>
+</html>

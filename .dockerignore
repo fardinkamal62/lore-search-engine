@@ -1,0 +1,48 @@
+# Docker specific ignores
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+data/

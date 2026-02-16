@@ -1,0 +1,18 @@
+services:
+  lore-backend:
+    build: .
+    container_name: lore-backend
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTHONUNBUFFERED: 1
+      PIP_NO_CACHE_DIR: 1
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+      DJANGO_SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      DJANGO_ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
