@@ -1,4 +1,5 @@
 from django.http import JsonResponse
+from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
@@ -49,7 +50,10 @@ def auto_complete(request):
         {"title": "Suggestion 2 for " + query, "url": "/suggestion2"},
         {"title": "Suggestion 3 for " + query, "url": "/suggestion3"},
     ]
-    return JsonResponse({"suggestions": suggestions})
+    return JsonResponse({
+        "suggestions": suggestions,
+        "csrf_token": get_token(request),
+    })
 
 
 @ensure_csrf_cookie
@@ -93,4 +97,7 @@ def search(request):
             "category": ["article"]
         }
     ]
-    return JsonResponse({"results": results})
+    return JsonResponse({
+        "csrf_token": get_token(request),
+        "results": results
+    })

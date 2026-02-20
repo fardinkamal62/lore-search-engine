@@ -5,3 +5,5 @@ pytest>=9.0.2
 pytest-django>=4.11.0
 pytest-cov>=7.0.0
 djangorestframework>=3.16.1
+django-cors-headers>=4.0.0
+Pillow>=10.0.0
