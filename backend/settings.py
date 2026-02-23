@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'apps.authentication',
+    'apps.upload'
 ]
 
 MIDDLEWARE = [
@@ -117,6 +118,10 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Static files (CSS, JavaScript, Images) for production
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media files (user uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

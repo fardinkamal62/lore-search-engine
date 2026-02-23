@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/autocomplete', views.auto_complete, name='auto_complete'),
     path('api/search', views.search, name='search'),
     path('api/auth/', include('apps.authentication.urls')),
+    path('api/upload/', include('apps.upload.urls')),
 ]
 
 # Serve media files during development
