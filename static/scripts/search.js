@@ -125,15 +125,16 @@ function renderSearchResults(result) {
         const $type = $('<span>').addClass('result-category').text(item.file_type || '');
         $meta.append($type);
 
-        // Matched terms
-        const $terms = $('<div>').addClass('mt-2');
-        if (item.matched_terms && item.matched_terms.length) {
-            item.matched_terms.forEach(term => {
-                $terms.append($('<span>').addClass('result-category me-1').text(term));
+        // Matched phrases (sentences)
+        const $phrases = $('<div>').addClass('mt-2');
+        if (item.matched_phrases && item.matched_phrases.length) {
+            item.matched_phrases.forEach(phrase => {
+                const $phraseItem = $('<div>').addClass('text-muted small mb-1').text(phrase);
+                $phrases.append($phraseItem);
             });
         }
 
-        $item.append($title, $meta, $terms);
+        $item.append($title, $meta, $phrases);
         $container.append($item);
     });
 

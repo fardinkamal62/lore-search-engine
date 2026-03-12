@@ -26,7 +26,7 @@ class IndexerService:
                     'original_filename':<str>,
                     'file_type':        <str>,
                     'score':            <float>,   # sum of TF-IDF across matched terms
-                    'matched_terms':    [<str>, ...],
+                    'matched_phrases':  [<str>, ...],  # sentences containing the query
                 },
                 ...
             ]
@@ -35,6 +35,7 @@ class IndexerService:
         sorted descending.
         """
         from apps.indexer.tokenizer import tokenize
+        from apps.indexer.models import DocumentPhrase
 
         if not query.strip():
             return []
@@ -67,10 +68,23 @@ class IndexerService:
                     'file_type': doc.file_type,
                     'file_url': file_url,
                     'score': 0.0,
-                    'matched_terms': [],
+                    'matched_phrases': set(),
                 }
             doc_scores[doc.pk]['score'] += entry.tf_idf
-            doc_scores[doc.pk]['matched_terms'].append(entry.term)
+
+        # For each document, fetch matching phrases
+        for doc_id in doc_scores.keys():
+            phrases = DocumentPhrase.objects.filter(
+                document_id=doc_id,
+                phrase__icontains=query
+            ).values_list('phrase', flat=True)[:5]  # limit to 5 phrases per doc
+            doc_scores[doc_id]['matched_phrases'] = list(phrases)
+
+        # Convert sets to lists for JSON serialization
+        for doc_data in doc_scores.values():
+            if not doc_data['matched_phrases']:
+                # Fallback: show filename-based phrase if no content phrases
+                doc_data['matched_phrases'] = [doc_data['original_filename']]
 
         # Sort by score descending
         results = sorted(doc_scores.values(), key=lambda x: x['score'], reverse=True)

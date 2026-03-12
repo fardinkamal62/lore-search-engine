@@ -52,20 +52,17 @@ def profile_page(request):
 @ensure_csrf_cookie
 def auto_complete(request):
     """
-    Return phrase suggestions for the authenticated user as they type.
+    Return multi-word phrase suggestions for the authenticated user.
 
-    Suggestions are searchable terms, not file objects — clicking one navigates
-    to the search page (/search?q=<phrase>) where matching files are listed.
+    Clicking a suggestion navigates to /search?q=<phrase>.
 
-    Two passes (combined, deduplicated, max 8 results):
-      1. Word extraction — split every filename the user owns into individual
-         words; keep words that start with the query (case-insensitive).
-         These are natural-language words and preferred for display.
-      2. Index-term fallback — terms from the user's InvertedIndex that start
-         with the query prefix (Porter-stemmed, shown only when pass 1 yields
-         fewer than 8 results).
+    Two passes (combined, deduplicated, max 8):
+      1. Filename phrases — cleaned filename; full name + context window.
+      2. Content phrases — real sentences from DocumentPhrase (stored at index
+         time via NLTK sent_tokenize) where the sentence contains the query.
     """
     import re
+
     query = request.GET.get('q', '').strip().lower()
     user  = _get_user_from_request(request)
 
@@ -73,48 +70,69 @@ def auto_complete(request):
         return JsonResponse({'suggestions': [], 'csrf_token': get_token(request)})
 
     from apps.upload.models import UploadedFile
-    from apps.indexer.models import InvertedIndex
+    from apps.indexer.models import DocumentPhrase
 
-    MAX_RESULTS = 8
-    seen_phrases: set[str] = set()
+    MAX_RESULTS      = 8
+    MAX_PHRASE_WORDS  = 7
+    SHORT_WINDOW      = 4
+
+    seen:    set[str]  = set()
     phrases: list[str] = []
 
-    def _add(word: str):
-        w = word.lower()
-        if w not in seen_phrases and len(w) > 1:
-            seen_phrases.add(w)
-            phrases.append(w)
+    def _add(phrase: str) -> bool:
+        key = phrase.lower().strip()
+        if key and key not in seen and len(key) > 1:
+            seen.add(key)
+            phrases.append(phrase.strip())
+            return True
+        return False
 
-    # Pass 1: words extracted from filenames
-    filenames = (
+    def _clean_filename(filename: str) -> str:
+        name = re.sub(r'\.[^.]+$', '', filename)
+        name = re.sub(r'[\s_\-]+', ' ', name)
+        name = re.sub(r'[()[\]{}]', ' ', name)
+        return re.sub(r'\s{2,}', ' ', name).strip()
+
+    # ── Pass 1: filename-based phrases ────────────────────────────────────
+    filenames = list(
         UploadedFile.objects
         .filter(uploaded_by=user, deleted_at=None)
         .values_list('original_filename', flat=True)
     )
+
     for filename in filenames:
-        # strip extension, split on whitespace / underscores / hyphens / dots / brackets
-        name = re.sub(r'\.[^.]+$', '', filename)
-        for word in re.split(r'[\s_\-.,;:()\[\]{}]+', name):
-            if len(word) > 1 and word.lower().startswith(query):
-                _add(word)
+        cleaned = _clean_filename(filename)
+        words   = cleaned.split()
+        for i, word in enumerate(words):
+            if word.lower().startswith(query):
+                full = ' '.join(words[:MAX_PHRASE_WORDS])
+                if len(words) > MAX_PHRASE_WORDS:
+                    full += '…'
+                _add(full)
+                start  = max(0, i - 1)
+                end    = min(len(words), i + SHORT_WINDOW)
+                window = ' '.join(words[start:end])
+                if window.lower() != full.lower():
+                    _add(window)
+                break
         if len(phrases) >= MAX_RESULTS:
             break
 
-    # Pass 2: index-term prefix fallback
+    # ── Pass 2: content phrases — real sentences from DocumentPhrase ──────
     if len(phrases) < MAX_RESULTS:
-        terms = (
-            InvertedIndex.objects
+        remaining = MAX_RESULTS - len(phrases)
+        content_phrases = (
+            DocumentPhrase.objects
             .filter(
                 document__uploaded_by=user,
                 document__deleted_at=None,
-                term__startswith=query,
+                phrase__icontains=query,
             )
-            .values_list('term', flat=True)
-            .distinct()
-            [:MAX_RESULTS]
+            .values_list('phrase', flat=True)
+            [:remaining * 3]    # fetch extra to account for dedup
         )
-        for term in terms:
-            _add(term)
+        for raw_phrase in content_phrases:
+            _add(raw_phrase)
             if len(phrases) >= MAX_RESULTS:
                 break
 

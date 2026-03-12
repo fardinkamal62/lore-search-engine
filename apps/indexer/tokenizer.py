@@ -69,14 +69,18 @@ def tokenize(text: str) -> list[str]:
         return _simple_tokenize(text)
 
 
-def tokenize_with_positions(text: str) -> dict[str, list[int]]:
+def tokenize_with_positions(text: str) -> dict[str, dict]:
     """
     Tokenize text and record the 0-based token-offset position of every
-    occurrence of each stemmed term.
+    occurrence of each stemmed term, plus the most common original (pre-stem)
+    word form.
 
     Returns:
         {
-            'term': [pos0, pos5, pos12, ...],
+            'stemmed_term': {
+                'positions': [pos0, pos5, pos12, ...],
+                'original':  'most_common_prestem_form',
+            },
             ...
         }
     """
@@ -89,10 +93,12 @@ def tokenize_with_positions(text: str) -> dict[str, list[int]]:
         logger.error('Position-aware tokenization failed: %s', exc, exc_info=True)
         # Fallback: positional map from simple tokenization
         tokens = _simple_tokenize(text)
-        positions: dict[str, list[int]] = {}
+        result: dict[str, dict] = {}
         for pos, token in enumerate(tokens):
-            positions.setdefault(token, []).append(pos)
-        return positions
+            if token not in result:
+                result[token] = {'positions': [], 'original': token}
+            result[token]['positions'].append(pos)
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +131,7 @@ def _tokenize(text: str) -> list[str]:
     return result
 
 
-def _tokenize_with_positions(text: str) -> dict[str, list[int]]:
+def _tokenize_with_positions(text: str) -> dict[str, dict]:
     try:
         from nltk.tokenize import word_tokenize
         raw_tokens = word_tokenize(text.lower())
@@ -138,7 +144,8 @@ def _tokenize_with_positions(text: str) -> dict[str, list[int]]:
     stop_words = _get_stopwords()
     stemmer = _get_stemmer()
 
-    positions: dict[str, list[int]] = {}
+    result: dict[str, dict] = {}
+    original_counts: dict[str, dict[str, int]] = {}   # stemmed → {original → count}
     offset = 0
     for tok in raw_tokens:
         if not _ALPHA_RE.match(tok):
@@ -146,9 +153,19 @@ def _tokenize_with_positions(text: str) -> dict[str, list[int]]:
         if tok in stop_words:
             continue
         stemmed = stemmer.stem(tok)
-        positions.setdefault(stemmed, []).append(offset)
+        if stemmed not in result:
+            result[stemmed] = {'positions': [], 'original': tok}
+            original_counts[stemmed] = {}
+        result[stemmed]['positions'].append(offset)
+        original_counts[stemmed][tok] = original_counts[stemmed].get(tok, 0) + 1
         offset += 1
-    return positions
+
+    # Pick the most frequent original form for each stem
+    for stemmed, counts in original_counts.items():
+        best = max(counts, key=counts.get)
+        result[stemmed]['original'] = best
+
+    return result
 
 
 def _simple_tokenize(text: str) -> list[str]:
