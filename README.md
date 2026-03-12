@@ -1,6 +1,6 @@
 # Lore
 ### Personal Search Engine
-<sub>Version 1.4.0-Alpha</sub>
+<sub>Version 1.5.2-Alpha</sub>
 
 Lore is a personal search engine that indexes and searches through your notes, PDFs and documents with
 intelligent ranking. Unlike traditional file search, it builds an internal knowledge graph of your content,
@@ -18,10 +18,15 @@ For CSE 0613-305 | Markup and Scripting Languages Lab
 
 # Features
 
+### Current
+
+- **User authentication**: Users can create accounts, log in, and manage their profiles.
+- **User profile page**: Users can view and edit their uploaded documents.
+- **Document management**: Users can upload documents and view a list of their uploaded files.
+- **Document indexing and search**: The system indexes the content of uploaded documents and allows users to perform keyword and semantic searches. 
+
 ### Planned
 
-- **Document upload and parsing**: Users can upload various document formats (PDF, DOCX, TXT) which are parsed and stored in the database.
-- **Document indexing and search**: The system indexes the content of uploaded documents and allows users to perform keyword and semantic searches.
 - **Knowledge graph construction**: The system builds a knowledge graph to understand relationships between documents and concepts.
 - **Intelligent ranking**: Search results are ranked based on relevance and relationships in the knowledge graph.
 - **Autocomplete and suggestions**: As users type search queries, the system provides autocomplete suggestions based on indexed content.

@@ -11,6 +11,8 @@ urlpatterns = [
     # Frontend views
     path('', views.home_page, name='home_page'),
     path('search/', views.search_page, name='search_page'),
+    path('login/', views.login_page, name='login_page'),
+    path('profile/me', views.profile_page, name='profile_page'),
 
     # API endpoints
     path('api/autocomplete', views.auto_complete, name='auto_complete'),

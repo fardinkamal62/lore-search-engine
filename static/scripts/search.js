@@ -1,3 +1,9 @@
+// Auth guard — redirect to /login/ if no token
+const AUTH_TOKEN = localStorage.getItem('auth_token');
+if (!AUTH_TOKEN) {
+    window.location.replace('/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search));
+}
+
 const DEBOUNCE_MS = 250;
 let debounceTimer = null;
 
@@ -41,25 +47,66 @@ function renderAutoSuggestionResults(result) {
 
     result.suggestions.forEach(item => {
         const $a = $('<a>')
-            .addClass('list-group-item list-group-item-action flex-column align-items-start')
-            .attr('href', `/search?q=${encodeURIComponent(item.title || item.name || 'Untitled')}`);
+            .addClass('list-group-item list-group-item-action d-flex align-items-center gap-2')
+            .attr('href', item.file_url || '#')
+            .attr('target', '_blank')
+            .attr('rel', 'noopener noreferrer');
 
-        const $header = $('<div>').addClass('d-flex w-100 justify-content-between');
-        const $h6 = $('<h6>').addClass('mb-1').text(item.title || item.name || 'Untitled');
-        $header.append($h6);
+        const $name = $('<span>').addClass('flex-grow-1 text-truncate').text(item.title || 'Untitled');
+        const $badge = $('<span>')
+            .addClass('badge bg-secondary flex-shrink-0')
+            .text((item.file_type || '').toUpperCase());
 
-        if (item.score !== undefined) {
-            const $score = $('<small>').addClass('text-muted').text(Number(item.score).toFixed(2));
-            $header.append($score);
-        }
-
-        const $p = $('<p>').addClass('mb-1 text-muted small text-truncate').text(item.snippet || item.excerpt || '');
-        $a.append($header, $p);
-
+        $a.append($name, $badge);
         $container.append($a);
     });
 
     $autoSuggestionResults.removeClass('d-none').empty().append($container);
+}
+
+function logout() {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    window.location.replace('/login/');
+}
+
+function renderSearchResults(result) {
+    if (!result || !Array.isArray(result.results) || result.results.length === 0) {
+        showMessage(result?.message || 'No results found.');
+        return;
+    }
+
+    const $container = $('<div>').addClass('list-group w-100');
+
+    result.results.forEach(item => {
+        const $item = $('<div>').addClass('list-group-item');
+
+        // Filename as a link that opens in a new tab
+        const $title = $('<a>')
+            .addClass('result-title d-block')
+            .attr('href', item.file_url || '#')
+            .attr('target', '_blank')
+            .attr('rel', 'noopener noreferrer')
+            .text(item.original_filename || 'Untitled');
+
+        // File type badge only (no score)
+        const $meta = $('<div>').addClass('result-meta d-flex align-items-center');
+        const $type = $('<span>').addClass('result-category').text(item.file_type || '');
+        $meta.append($type);
+
+        // Matched terms
+        const $terms = $('<div>').addClass('mt-2');
+        if (item.matched_terms && item.matched_terms.length) {
+            item.matched_terms.forEach(term => {
+                $terms.append($('<span>').addClass('result-category me-1').text(term));
+            });
+        }
+
+        $item.append($title, $meta, $terms);
+        $container.append($item);
+    });
+
+    $results.empty().append($container);
 }
 
 async function handleSearchQuery(query) {
@@ -71,7 +118,10 @@ async function handleSearchQuery(query) {
     $autoSuggestionResults.removeClass('d-none');
     showAutoSuggestionLoading();
     try {
-        const response = await fetch(`/api/autocomplete?q=${encodeURIComponent(query)}`);
+        const response = await fetch(`/api/autocomplete?q=${encodeURIComponent(query)}`, {
+            headers: { 'Authorization': 'Token ' + AUTH_TOKEN },
+        });
+        if (response.status === 401) { logout(); return; }
         if (!response.ok) throw new Error('Network error');
         const results = await response.json();
         renderAutoSuggestionResults(results);
@@ -81,83 +131,30 @@ async function handleSearchQuery(query) {
     }
 }
 
-function renderSearchResults(result) {
-    if (!result || !Array.isArray(result.results) || result.results.length === 0) {
-        showMessage('No results found.');
-        return;
-    }
-
-    const $container = $('<div>').addClass('list-group w-100');
-
-    result.results.forEach(item => {
-        const $item = $('<div>').addClass('list-group-item');
-
-        // Title as clickable link that triggers new search
-        const $title = $('<a>')
-            .addClass('result-title')
-            .attr('href', '#')
-            .text(item.title || 'Untitled')
-            .on('click', function(e) {
-                e.preventDefault();
-                // Trigger new search with this title
-                handleSearchQuery(item.title || 'Untitled');
-            });
-
-        // Resource name and score
-        const $meta = $('<div>').addClass('result-meta');
-        if (item['resource-name']) {
-            $meta.append($('<span>').text(item['resource-name']));
-        }
-        if (item.score !== undefined) {
-            $meta.append($('<span>').addClass('float-end').text('Score: ' + Number(item.score).toFixed(2)));
-        }
-
-        // Description
-        const $description = $('<p>')
-            .addClass('result-description')
-            .text(item.description || '');
-
-        // Categories
-        const $categories = $('<div>');
-        if (item.category && Array.isArray(item.category)) {
-            item.category.forEach(cat => {
-                $categories.append(
-                    $('<span>').addClass('result-category').text(cat)
-                );
-            });
-        }
-
-        $item.append($title, $meta, $description, $categories);
-        $container.append($item);
-    });
-
-    $results.empty().append($container);
-}
-
 async function pageResult(query) {
     if (!query) {
         showMessage('Please enter a search query.');
         return;
     }
 
-    // Update URL without reload
     const url = new URL(window.location);
     url.searchParams.set('q', query);
     window.history.replaceState({}, '', url);
-
-    // Update input field
     $input.val(query);
 
     showLoading();
     try {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
         const response = await fetch('/api/search', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val() || document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                'X-CSRFToken': csrfToken,
+                'Authorization': 'Token ' + AUTH_TOKEN,
             },
-            body: JSON.stringify({ query: query })
+            body: JSON.stringify({ query }),
         });
+        if (response.status === 401) { logout(); return; }
         if (!response.ok) throw new Error('Network error');
         const results = await response.json();
         renderSearchResults(results);
@@ -168,6 +165,19 @@ async function pageResult(query) {
 }
 
 $(function () {
+    // Inject logout button
+    const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
+    const username = user.username || 'User';
+    const $logoutBar = $(
+        `<div class="position-fixed top-0 end-0 p-2 d-flex align-items-center gap-2" style="z-index:1100">` +
+        `<small class="text-muted">${username}</small>` +
+        `<a href="/profile/me" class="btn btn-sm btn-outline-secondary">My Files</a>` +
+        `<button id="logout-btn" class="btn btn-sm btn-outline-secondary">Sign out</button>` +
+        `</div>`
+    );
+    $('body').append($logoutBar);
+    $('#logout-btn').on('click', logout);
+
     if ($input.length === 0) return;
 
     // Load initial results if query in URL

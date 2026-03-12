@@ -1,5 +1,7 @@
 from pathlib import Path
 import environ
+import nltk
+import os
 
 env = environ.Env()
 
@@ -24,7 +26,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'apps.authentication',
-    'apps.upload'
+    'apps.upload',
+    'apps.indexer',
 ]
 
 MIDDLEWARE = [
@@ -125,6 +128,11 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# NLTK data directory (stopwords, punkt tokenizer)
+NLTK_DATA_PATH = env('NLTK_DATA', default=str(BASE_DIR / 'data' / 'nltk'))
+os.makedirs(NLTK_DATA_PATH, exist_ok=True)
+nltk.data.path.insert(0, NLTK_DATA_PATH)
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [

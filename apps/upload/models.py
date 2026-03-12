@@ -18,7 +18,7 @@ class UploadedFile(models.Model):
         ('deleted', 'Deleted'),
     ]
 
-    file = models.FileField(upload_to='uploads/%Y/%m/%d/')
+    file = models.FileField(upload_to='uploads/%Y/%m/%d/', max_length=500)
     original_filename = models.CharField(max_length=255)
     file_type = models.CharField(max_length=10, choices=FILE_TYPE_CHOICES)
     file_size = models.PositiveIntegerField(help_text='File size in bytes')

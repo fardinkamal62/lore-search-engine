@@ -1,0 +1,94 @@
+/* ── Drop zone ───────────────────────────────────────────────────────────── */
+.drop-zone {
+    border-style: dashed !important;
+    border-color: #dee2e6 !important;
+    transition: background 0.15s, border-color 0.15s;
+    cursor: pointer;
+}
+.drop-zone.drag-over {
+    background: #f0f6ff;
+    border-color: #0d6efd !important;
+}
+
+/* ── Upload status rows ──────────────────────────────────────────────────── */
+.upload-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    background: #f8f9fa;
+    margin-bottom: 0.35rem;
+    font-size: 0.875rem;
+}
+.upload-item .upload-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.upload-item .upload-status { white-space: nowrap; font-size: 0.8rem; }
+
+/* ── File card ───────────────────────────────────────────────────────────── */
+.file-card {
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: box-shadow 0.15s;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.file-card:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+
+.file-icon {
+    font-size: 1.6rem;
+    width: 2.25rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.file-info { flex: 1; min-width: 0; }
+
+.file-name {
+    font-weight: 500;
+    color: #1a73e8;
+    text-decoration: none;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.file-name:hover { text-decoration: underline; }
+
+.file-meta {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 0.2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.file-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+.file-actions .btn { padding: 0.25rem 0.55rem; font-size: 0.8rem; }
+
+/* ── Status badges ───────────────────────────────────────────────────────── */
+.badge-status-processed  { background: #d1e7dd; color: #0a3622; }
+.badge-status-pending    { background: #fff3cd; color: #664d03; }
+.badge-status-failed     { background: #f8d7da; color: #58151c; }
+.badge-status-deleted    { background: #e2e3e5; color: #41464b; }
+.badge-status { font-size: 0.72rem; border-radius: 20px; padding: 0.2em 0.6em; }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: #6c757d;
+}
+.empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.4; }
+

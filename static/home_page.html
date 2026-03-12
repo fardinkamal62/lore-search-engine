@@ -17,6 +17,7 @@
 </head>
 
 <body>
+{% csrf_token %}
 <div class="container d-flex flex-column justify-content-center align-items-center min-vh-100 gap-3">
     <h1 class="mb-0">Lore</h1>
     <sub class="text-muted">
@@ -32,6 +33,20 @@
         </div>
 
         <div id="search-results" class="search-results w-100 d-none" aria-live="polite"></div>
+    </div>
+
+    <!-- Upload area -->
+    <div class="upload-wrapper w-100 d-flex justify-content-center">
+        <div class="w-100">
+            <div id="drop-zone" class="drop-zone text-center p-4 rounded border border-2 border-dashed text-muted"
+                 role="button" tabindex="0" aria-label="Upload files">
+                <i class="fa-solid fa-cloud-arrow-up fa-2x mb-2"></i>
+                <div>Drag &amp; drop files here or <span class="text-primary" style="cursor:pointer">browse</span></div>
+                <small>PDF, DOCX, PNG, JPG, MD &mdash; up to 20 MB each</small>
+                <input type="file" id="file-input" multiple accept=".pdf,.docx,.png,.jpg,.jpeg,.md" class="d-none">
+            </div>
+            <div id="upload-list" class="mt-2"></div>
+        </div>
     </div>
 </div>
 
