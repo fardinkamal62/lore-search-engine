@@ -6,6 +6,7 @@ if (!AUTH_TOKEN) {
 
 const DEBOUNCE_MS = 250;
 let debounceTimer = null;
+let activeSuggestionIndex = -1;   // -1 = input has focus
 
 // jQuery-wrapped DOM refs
 const $input = $('#search-input');
@@ -37,30 +38,60 @@ function showAutoSuggestionError(text) {
     $autoSuggestionResults.html('<div class="alert alert-danger">' + text + '</div>');
 }
 
+function resetSuggestionIndex() {
+    activeSuggestionIndex = -1;
+    $autoSuggestionResults.find('.list-group-item').removeClass('active');
+}
+
+function highlightSuggestion(index) {
+    const $items = $autoSuggestionResults.find('.list-group-item');
+    const total  = $items.length;
+    if (!total) return;
+
+    // Clamp: -1 means nothing highlighted (back to input)
+    activeSuggestionIndex = Math.max(-1, Math.min(index, total - 1));
+
+    $items.removeClass('active');
+    if (activeSuggestionIndex >= 0) {
+        $items.eq(activeSuggestionIndex).addClass('active');
+    }
+}
+
 function renderAutoSuggestionResults(result) {
     if (!result || !Array.isArray(result.suggestions) || result.suggestions.length === 0) {
         $autoSuggestionResults.empty().addClass('d-none');
+        resetSuggestionIndex();
         return;
     }
 
     const $container = $('<div>').addClass('list-group w-100');
 
     result.suggestions.forEach(item => {
+        const phrase = item.phrase || '';
         const $a = $('<a>')
             .addClass('list-group-item list-group-item-action d-flex align-items-center gap-2')
-            .attr('href', item.file_url || '#')
-            .attr('target', '_blank')
-            .attr('rel', 'noopener noreferrer');
+            .attr('href', '#')
+            .attr('data-phrase', phrase)
+            .on('mouseenter', function () {
+                const idx = $autoSuggestionResults.find('.list-group-item').index(this);
+                highlightSuggestion(idx);
+            })
+            .on('click', function (e) {
+                e.preventDefault();
+                const p = $(this).data('phrase');
+                $autoSuggestionResults.empty().addClass('d-none');
+                resetSuggestionIndex();
+                pageResult(p);
+            });
 
-        const $name = $('<span>').addClass('flex-grow-1 text-truncate').text(item.title || 'Untitled');
-        const $badge = $('<span>')
-            .addClass('badge bg-secondary flex-shrink-0')
-            .text((item.file_type || '').toUpperCase());
+        const $icon = $('<i>').addClass('fa-solid fa-magnifying-glass text-muted flex-shrink-0').css('font-size', '0.75rem');
+        const $text = $('<span>').addClass('flex-grow-1').text(phrase);
 
-        $a.append($name, $badge);
+        $a.append($icon, $text);
         $container.append($a);
     });
 
+    resetSuggestionIndex();
     $autoSuggestionResults.removeClass('d-none').empty().append($container);
 }
 
@@ -194,9 +225,40 @@ $(function () {
     });
 
     $input.on('keydown', function (e) {
+        const $items = $autoSuggestionResults.find('.list-group-item');
+        const dropdownOpen = !$autoSuggestionResults.hasClass('d-none') && $items.length > 0;
+
+        if (e.key === 'ArrowDown') {
+            if (!dropdownOpen) return;
+            e.preventDefault();
+            highlightSuggestion(activeSuggestionIndex + 1);
+            return;
+        }
+
+        if (e.key === 'ArrowUp') {
+            if (!dropdownOpen) return;
+            e.preventDefault();
+            highlightSuggestion(activeSuggestionIndex - 1);
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            $autoSuggestionResults.empty().addClass('d-none');
+            resetSuggestionIndex();
+            return;
+        }
+
         if (e.key === 'Enter') {
             clearTimeout(debounceTimer);
+            if (dropdownOpen && activeSuggestionIndex >= 0) {
+                const phrase = $items.eq(activeSuggestionIndex).data('phrase');
+                $autoSuggestionResults.empty().addClass('d-none');
+                resetSuggestionIndex();
+                pageResult(phrase);
+                return;
+            }
             $autoSuggestionResults.empty().addClass('d-none');
+            resetSuggestionIndex();
             pageResult($input.val().trim());
         }
     });
@@ -213,6 +275,7 @@ $(function () {
     $(document).on('click', function(e) {
         if (!$(e.target).closest('.search-wrapper').length) {
             $autoSuggestionResults.empty().addClass('d-none');
+            resetSuggestionIndex();
         }
     });
 });

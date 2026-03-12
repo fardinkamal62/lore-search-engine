@@ -5,6 +5,7 @@ if (!AUTH_TOKEN) {
 
 const DEBOUNCE_MS = 250;
 let debounceTimer = null;
+let activeSuggestionIndex = -1;   // -1 = nothing highlighted
 
 // jQuery-wrapped DOM refs
 const $input = $('#search-input');
@@ -21,30 +22,50 @@ function showError(text) {
     $results.html('<div class="alert alert-danger">' + text + '</div>');
 }
 
+function resetSuggestionIndex() {
+    activeSuggestionIndex = -1;
+    $results.find('.list-group-item').removeClass('active');
+}
+
+function highlightSuggestion(index) {
+    const $items = $results.find('.list-group-item');
+    const total  = $items.length;
+    if (!total) return;
+    activeSuggestionIndex = Math.max(-1, Math.min(index, total - 1));
+    $items.removeClass('active');
+    if (activeSuggestionIndex >= 0) {
+        $items.eq(activeSuggestionIndex).addClass('active');
+    }
+}
+
 function renderResults(result) {
     if (!result || !Array.isArray(result.suggestions) || result.suggestions.length === 0) {
-        showMessage('No matching files found.');
+        $results.empty().addClass('d-none');
+        resetSuggestionIndex();
         return;
     }
 
     const $container = $('<div>').addClass('list-group w-100');
 
     result.suggestions.forEach(item => {
+        const phrase = item.phrase || '';
         const $a = $('<a>')
             .addClass('list-group-item list-group-item-action d-flex align-items-center gap-2')
-            .attr('href', item.file_url || '#')
-            .attr('target', '_blank')
-            .attr('rel', 'noopener noreferrer');
+            .attr('href', `/search?q=${encodeURIComponent(phrase)}`)
+            .attr('data-phrase', phrase)
+            .on('mouseenter', function () {
+                const idx = $results.find('.list-group-item').index(this);
+                highlightSuggestion(idx);
+            });
 
-        const $name = $('<span>').addClass('flex-grow-1 text-truncate').text(item.title || 'Untitled');
-        const $badge = $('<span>')
-            .addClass('badge bg-secondary flex-shrink-0')
-            .text((item.file_type || '').toUpperCase());
+        const $icon = $('<i>').addClass('fa-solid fa-magnifying-glass text-muted flex-shrink-0').css('font-size', '0.75rem');
+        const $text = $('<span>').addClass('flex-grow-1').text(phrase);
 
-        $a.append($name, $badge);
+        $a.append($icon, $text);
         $container.append($a);
     });
 
+    resetSuggestionIndex();
     $results.removeClass('d-none').empty().append($container);
 }
 
@@ -99,11 +120,42 @@ $(function () {
     });
 
     $input.on('keydown', function (e) {
+        const $items = $results.find('.list-group-item');
+        const dropdownOpen = !$results.hasClass('d-none') && $items.length > 0;
+
+        if (e.key === 'ArrowDown') {
+            if (!dropdownOpen) return;
+            e.preventDefault();
+            highlightSuggestion(activeSuggestionIndex + 1);
+            return;
+        }
+
+        if (e.key === 'ArrowUp') {
+            if (!dropdownOpen) return;
+            e.preventDefault();
+            highlightSuggestion(activeSuggestionIndex - 1);
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            $results.empty().addClass('d-none');
+            resetSuggestionIndex();
+            return;
+        }
+
         if (e.key === 'Enter') {
             clearTimeout(debounceTimer);
-            // Navigate to search page on Enter
+            if (dropdownOpen && activeSuggestionIndex >= 0) {
+                const phrase = $items.eq(activeSuggestionIndex).data('phrase');
+                $results.empty().addClass('d-none');
+                resetSuggestionIndex();
+                window.location.href = `/search?q=${encodeURIComponent(phrase)}`;
+                return;
+            }
             const query = $input.val().trim();
             if (query) {
+                $results.empty().addClass('d-none');
+                resetSuggestionIndex();
                 window.location.href = `/search?q=${encodeURIComponent(query)}`;
             }
         }
@@ -207,4 +259,12 @@ $(function () {
         }
     }
     // ─────────────────────────────────────────────────────────────────────
+
+    // Hide autosuggestions when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.search-wrapper').length) {
+            $results.empty().addClass('d-none');
+            resetSuggestionIndex();
+        }
+    });
 });

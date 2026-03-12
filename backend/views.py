@@ -52,17 +52,21 @@ def profile_page(request):
 @ensure_csrf_cookie
 def auto_complete(request):
     """
-    Return autocomplete suggestions for the authenticated user.
+    Return phrase suggestions for the authenticated user as they type.
+
+    Suggestions are searchable terms, not file objects — clicking one navigates
+    to the search page (/search?q=<phrase>) where matching files are listed.
 
     Two passes (combined, deduplicated, max 8 results):
-      1. Filename match  — UploadedFile.original_filename icontains query
-      2. Content match   — InvertedIndex terms that start with the tokenized query,
-                           pulling the parent document (processed files only)
-
-    Each suggestion carries { title, file_url, file_type } so the frontend
-    can open the file directly without a round-trip to the search page.
+      1. Word extraction — split every filename the user owns into individual
+         words; keep words that start with the query (case-insensitive).
+         These are natural-language words and preferred for display.
+      2. Index-term fallback — terms from the user's InvertedIndex that start
+         with the query prefix (Porter-stemmed, shown only when pass 1 yields
+         fewer than 8 results).
     """
-    query = request.GET.get('q', '').strip()
+    import re
+    query = request.GET.get('q', '').strip().lower()
     user  = _get_user_from_request(request)
 
     if not user or not query:
@@ -70,54 +74,51 @@ def auto_complete(request):
 
     from apps.upload.models import UploadedFile
     from apps.indexer.models import InvertedIndex
-    from apps.indexer.tokenizer import tokenize
 
     MAX_RESULTS = 8
-    seen_ids    = set()
-    suggestions = []
+    seen_phrases: set[str] = set()
+    phrases: list[str] = []
 
-    def _to_suggestion(f):
-        return {
-            'title':     f.original_filename,
-            'file_url':  request.build_absolute_uri(f.file.url),
-            'file_type': f.file_type,
-        }
+    def _add(word: str):
+        w = word.lower()
+        if w not in seen_phrases and len(w) > 1:
+            seen_phrases.add(w)
+            phrases.append(w)
 
-    # Pass 1: filename contains query (all statuses except deleted)
-    filename_qs = (
+    # Pass 1: words extracted from filenames
+    filenames = (
         UploadedFile.objects
-        .filter(uploaded_by=user, deleted_at=None, original_filename__icontains=query)
-        .order_by('-uploaded_at')[:MAX_RESULTS]
+        .filter(uploaded_by=user, deleted_at=None)
+        .values_list('original_filename', flat=True)
     )
-    for f in filename_qs:
-        seen_ids.add(f.pk)
-        suggestions.append(_to_suggestion(f))
+    for filename in filenames:
+        # strip extension, split on whitespace / underscores / hyphens / dots / brackets
+        name = re.sub(r'\.[^.]+$', '', filename)
+        for word in re.split(r'[\s_\-.,;:()\[\]{}]+', name):
+            if len(word) > 1 and word.lower().startswith(query):
+                _add(word)
+        if len(phrases) >= MAX_RESULTS:
+            break
 
-    # Pass 2: indexed-term prefix match (only processed files)
-    if len(suggestions) < MAX_RESULTS:
-        query_terms = tokenize(query)
-        if query_terms:
-            remaining = MAX_RESULTS - len(suggestions)
-            term_docs = (
-                InvertedIndex.objects
-                .filter(
-                    document__uploaded_by=user,
-                    document__deleted_at=None,
-                    document__status='processed',
-                    term__in=query_terms,
-                )
-                .exclude(document__pk__in=seen_ids)
-                .select_related('document')
-                .order_by('-tf_idf')[:remaining * 3]   # fetch extra, dedupe below
+    # Pass 2: index-term prefix fallback
+    if len(phrases) < MAX_RESULTS:
+        terms = (
+            InvertedIndex.objects
+            .filter(
+                document__uploaded_by=user,
+                document__deleted_at=None,
+                term__startswith=query,
             )
-            for entry in term_docs:
-                doc = entry.document
-                if doc.pk not in seen_ids:
-                    seen_ids.add(doc.pk)
-                    suggestions.append(_to_suggestion(doc))
-                if len(suggestions) >= MAX_RESULTS:
-                    break
+            .values_list('term', flat=True)
+            .distinct()
+            [:MAX_RESULTS]
+        )
+        for term in terms:
+            _add(term)
+            if len(phrases) >= MAX_RESULTS:
+                break
 
+    suggestions = [{'phrase': p} for p in phrases[:MAX_RESULTS]]
     return JsonResponse({'suggestions': suggestions, 'csrf_token': get_token(request)})
 
 
