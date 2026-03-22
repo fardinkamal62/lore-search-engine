@@ -1,4 +1,7 @@
-from django.test import TestCase
+import os
+import tempfile
+from types import SimpleNamespace
+
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase, APIClient
 
@@ -39,4 +42,22 @@ class IndexerTestCase(APITestCase):
         stats = IndexerService.get_index_stats(self.user)
         self.assertEqual(stats['total_entries'], 0)
         self.assertEqual(stats['indexed_documents'], 0)
+
+    def test_extract_text_supports_txt(self):
+        from apps.indexer.extractor import extract_text
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp:
+            tmp.write('alpha beta gamma')
+            tmp_path = tmp.name
+
+        try:
+            uploaded_file = SimpleNamespace(
+                id=1,
+                file_type='txt',
+                file=SimpleNamespace(path=tmp_path),
+            )
+            extracted = extract_text(uploaded_file)
+            self.assertIn('alpha beta gamma', extracted)
+        finally:
+            os.remove(tmp_path)
 

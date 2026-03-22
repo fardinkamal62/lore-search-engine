@@ -9,6 +9,7 @@ class UploadedFile(models.Model):
         ('png', 'PNG Image'),
         ('jpg', 'JPEG Image'),
         ('md', 'Markdown'),
+        ('txt', 'Text File'),
     ]
 
     STATUS_CHOICES = [

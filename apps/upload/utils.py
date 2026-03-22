@@ -1,6 +1,6 @@
 import os
 
-ALLOWED_EXTENSIONS = {'pdf', 'docx', 'png', 'jpg', 'jpeg', 'md'}
+ALLOWED_EXTENSIONS = {'pdf', 'docx', 'png', 'jpg', 'jpeg', 'md', 'txt'}
 
 # Normalise jpg/jpeg to a single canonical key
 EXTENSION_ALIAS = {'jpeg': 'jpg'}

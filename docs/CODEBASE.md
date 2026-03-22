@@ -1,6 +1,6 @@
 # Lore Search Engine — Codebase Documentation
 
-> **Last updated:** March 12, 2026  
+> **Last updated:** March 22, 2026  
 > **Stack:** Django 6 · Django REST Framework · PostgreSQL · Bootstrap 5 · jQuery · PyPDF2 · python-docx · NLTK · pytesseract
 
 ---
@@ -31,7 +31,7 @@
 
 ## 1. Project Overview
 
-**Lore** is a personal search engine backend that allows users to upload documents (PDFs, Word documents, images, Markdown files), index them, and search through their content. The system is designed to eventually support an inverted index, a Trie-based autocomplete engine, and a knowledge-graph visualization of document relationships.
+**Lore** is a personal search engine backend that allows users to upload documents (PDFs, Word documents, text files, images, Markdown files), index them, and search through their content. The system is designed to eventually support an inverted index, a Trie-based autocomplete engine, and a knowledge-graph visualization of document relationships.
 
 The current implementation provides:
 - User registration, login, logout, and token management
@@ -87,7 +87,7 @@ lore-search-engine/
 │   │
 │   └── indexer/                 # Document indexing app
 │       ├── models.py            # InvertedIndex model (single index table)
-│       ├── extractor.py         # Text extraction per file type (PDF/DOCX/MD/image)
+│       ├── extractor.py         # Text extraction per file type (PDF/DOCX/MD/TXT/image)
 │       ├── tokenizer.py         # Lowercasing, stop-word removal, Porter stemming
 │       ├── pipeline.py          # index_document() — full indexing orchestration
 │       ├── services.py          # IndexerService (user-scoped search & query helpers)
@@ -232,12 +232,12 @@ The `POST /api/upload/` endpoint accepts **multiple files** in a single request 
 
 #### `UploadUtils` — Constraints
 
-| Constraint          | Value                                        |
-|---------------------|----------------------------------------------|
-| Allowed extensions  | `pdf`, `docx`, `png`, `jpg`, `jpeg`, `md`    |
-| Max file size       | **20 MB**                                    |
-| Extension alias     | `jpeg` → `jpg` (stored canonically as `jpg`) |
-| Upload path pattern | `media/uploads/YYYY/MM/DD/`                  |
+| Constraint          | Value                                            |
+|---------------------|--------------------------------------------------|
+| Allowed extensions  | `pdf`, `docx`, `png`, `jpg`, `jpeg`, `md`, `txt` |
+| Max file size       | **20 MB**                                        |
+| Extension alias     | `jpeg` → `jpg` (stored canonically as `jpg`)     |
+| Upload path pattern | `media/uploads/YYYY/MM/DD/`                      |
 
 ---
 
@@ -266,7 +266,7 @@ UploadedFile (status=pending)
 |---------------|--------------------------|-------------------------------------------------------------------------------------------------------------|
 | `pdf`         | `PyPDF2`                 | Extracts text from all pages                                                                                |
 | `docx`        | `python-docx`            | Extracts paragraph text                                                                                     |
-| `md`          | built-in `open()`        | UTF-8 read, errors replaced                                                                                 |
+| `md` / `txt`  | built-in `open()`        | UTF-8 read, errors replaced                                                                                 |
 | `png` / `jpg` | `pytesseract` + `Pillow` | OCR; requires `tesseract-ocr` binary on host. Logs a warning and returns `""` if Tesseract is not installed |
 
 #### `tokenizer.py` — Token Pipeline
@@ -731,7 +731,7 @@ Uploads one or more files in a single request. The request must be `multipart/fo
 > For backwards compatibility a single file submitted under the field name `file` is also accepted.
 
 **Constraints:**
-- Allowed file types: `pdf`, `docx`, `png`, `jpg` / `jpeg`, `md`
+- Allowed file types: `pdf`, `docx`, `png`, `jpg` / `jpeg`, `md`, `txt`
 - Maximum file size: **20 MB** per file
 - Each file is validated individually; valid files are saved even if others fail
 
@@ -766,7 +766,7 @@ Uploads one or more files in a single request. The request must be `multipart/fo
   "failed": [
     {
       "filename": "bad.exe",
-      "errors": { "file": ["File type not allowed. Allowed types: docx, jpg, md, pdf, png."] }
+      "errors": { "file": ["File type not allowed. Allowed types: docx, jpg, md, pdf, png, txt."] }
     }
   ],
   "count": 1,
@@ -898,6 +898,7 @@ Stores metadata for each user-uploaded file.
 | `png`  | PNG Image     |
 | `jpg`  | JPEG Image    |
 | `md`   | Markdown      |
+| `txt`  | Text File     |
 
 **`status` choices:**
 
@@ -1128,3 +1129,14 @@ pytest --cov
 | `test_token_refresh`                         | `POST /api/auth/token/refresh/` | Old token deleted, new token issued                           |
 | `test_protected_endpoint_without_token`      | `GET /api/auth/profile/`        | Returns `401` when unauthenticated                            |
 | `test_protected_endpoint_with_invalid_token` | `GET /api/auth/profile/`        | Returns `401` for invalid token                               |
+| `test_txt_file_is_allowed`                   | Upload validation utility       | Confirms `.txt` files are accepted                            |
+| `test_exe_file_is_rejected`                  | Upload validation utility       | Confirms unsupported extensions are rejected                  |
+
+### `IndexerTestCase` (`apps/indexer/tests.py`)
+
+| Test                              | Area                      | Scenario                                       |
+|-----------------------------------|---------------------------|------------------------------------------------|
+| `test_tokenizer_basic`            | Tokenization              | Stop-words removed, content words retained     |
+| `test_tokenizer_with_positions`   | Token position indexing   | Positional map is generated                    |
+| `test_index_stats_empty`          | Index statistics          | Empty corpus returns zero counts               |
+| `test_extract_text_supports_txt`  | Text extraction (`txt`)   | Plain text files are extracted for indexing    |

@@ -18,7 +18,7 @@ def extract_text(uploaded_file) -> str:
     Supports:
       - pdf   → PyPDF2
       - docx  → python-docx
-      - md    → plain read (UTF-8)
+      - md/txt → plain read (UTF-8)
       - png / jpg → pytesseract OCR (Tesseract must be installed on the host)
 
     Returns an empty string if the file type is unsupported or if extraction
@@ -32,7 +32,7 @@ def extract_text(uploaded_file) -> str:
             return _extract_pdf(file_path)
         elif file_type == 'docx':
             return _extract_docx(file_path)
-        elif file_type == 'md':
+        elif file_type in ('md', 'txt'):
             return _extract_text_file(file_path)
         elif file_type in ('png', 'jpg'):
             return _extract_image(file_path)
@@ -91,19 +91,20 @@ def _extract_image(file_path: str) -> str:
     try:
         import pytesseract
         from PIL import Image
+    except ImportError:
+        logger.warning(
+            'pytesseract/Pillow not available — skipping OCR for image %s.',
+            file_path,
+        )
+        return ''
 
+    try:
         image = Image.open(file_path)
         text = pytesseract.image_to_string(image)
         return text or ''
     except pytesseract.pytesseract.TesseractNotFoundError:
         logger.warning(
-            'Tesseract not found — skipping OCR for image %s. '
-            'Install tesseract-ocr to enable image indexing.',
-            file_path,
-        )
-        return ''
-        logger.warning(
-            'Tesseract not found — skipping OCR for image %s. '
+            'Tesseract not found - skipping OCR for image %s. '
             'Install tesseract-ocr to enable image indexing.',
             file_path,
         )

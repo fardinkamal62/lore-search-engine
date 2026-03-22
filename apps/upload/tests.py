@@ -1,7 +1,10 @@
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase, APIClient
 from rest_framework.authtoken.models import Token
 from rest_framework import status
+
+from apps.upload.utils import UploadUtils
 
 User = get_user_model()
 
@@ -155,3 +158,18 @@ class AuthenticationAPITestCase(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Token invalid_token')
         response = self.client.get('/api/auth/profile/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class UploadValidationTestCase(APITestCase):
+    def test_txt_file_is_allowed(self):
+        file = SimpleUploadedFile('notes.txt', b'hello world', content_type='text/plain')
+        valid, error = UploadUtils.validate_file(file)
+        self.assertTrue(valid)
+        self.assertIsNone(error)
+
+    def test_exe_file_is_rejected(self):
+        file = SimpleUploadedFile('script.exe', b'not allowed', content_type='application/octet-stream')
+        valid, error = UploadUtils.validate_file(file)
+        self.assertFalse(valid)
+        self.assertIn('File type not allowed', error)
+

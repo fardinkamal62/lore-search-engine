@@ -72,7 +72,7 @@ graph TB
 | Module Name         | Description                                                                   | DSA Concepts Used                     |
 |---------------------|-------------------------------------------------------------------------------|---------------------------------------|
 | Document Indexer    | Processes uploaded documents, extracts text, builds search indexes            | Inverted Index, Hash Tables           |
-| Search Engine Core  | Executes search queries with boolean operators and phrase matching            | Trie, Postings Lists                  |
+| Search Engine Core  | Executes search queries with boolean operators                                | Trie, Postings Lists                  |
 | Ranking System      | Ranks results using TF-IDF and document relationship scoring                  | Graph Algorithms, Priority Queues     |
 | Knowledge Graph     | Creates and visualizes connections between documents based on shared concepts | Graph Theory, BFS/DFS                 |
 | Autocomplete        | Provides real-time search suggestions as user types                           | Trie, Prefix Matching                 |
@@ -84,7 +84,7 @@ graph TB
 A fully functional web application where users can:
 - Upload documents (PDFs, notes) which are automatically indexed
 - Search across all documents with sub-second response time
-- See ranked results with highlighted keywords and relevance scores
+- See ranked search results
 - Visualize document relationships in an interactive knowledge graph
 - Get intelligent suggestions for related documents and concepts
 - Export search results and document analytics
