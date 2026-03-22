@@ -3,6 +3,7 @@ import tempfile
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase, APIClient
 
 User = get_user_model()
@@ -60,4 +61,55 @@ class IndexerTestCase(APITestCase):
             self.assertIn('alpha beta gamma', extracted)
         finally:
             os.remove(tmp_path)
+
+    def test_prefix_trie_returns_ranked_prefix_matches(self):
+        from apps.indexer.trie import PrefixTrie
+
+        trie = PrefixTrie()
+        trie.insert('Machine Learning Basics', weight=2.0)
+        trie.insert('Machine Vision Notes', weight=3.0)
+        trie.insert('Math Primer', weight=1.0)
+
+        suggestions = trie.suggest('mach', limit=2)
+        self.assertEqual(suggestions, ['Machine Vision Notes', 'Machine Learning Basics'])
+
+    def test_autocomplete_service_uses_trie_prefix_matching(self):
+        from apps.upload.models import UploadedFile
+        from apps.indexer.models import DocumentPhrase
+        from apps.indexer.services import AutocompleteService
+
+        uploaded = UploadedFile.objects.create(
+            file=SimpleUploadedFile('machine-learning-notes.txt', b'ml notes'),
+            original_filename='machine-learning-notes.txt',
+            file_type='txt',
+            file_size=8,
+            uploaded_by=self.user,
+            status='processed',
+        )
+        DocumentPhrase.objects.create(
+            document=uploaded,
+            phrase='machine learning from first principles',
+            position=0,
+        )
+
+        suggestions = AutocompleteService.get_suggestions(self.user, 'mach', limit=5)
+        self.assertTrue(any(p.lower().startswith('machine') for p in suggestions))
+
+    def test_autocomplete_endpoint_returns_phrase_objects(self):
+        from apps.upload.models import UploadedFile
+
+        UploadedFile.objects.create(
+            file=SimpleUploadedFile('microservices-guide.txt', b'guide text'),
+            original_filename='microservices-guide.txt',
+            file_type='txt',
+            file_size=10,
+            uploaded_by=self.user,
+            status='processed',
+        )
+
+        response = self.client.get('/api/autocomplete?q=mic')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('suggestions', response.json())
+        if response.json()['suggestions']:
+            self.assertIn('phrase', response.json()['suggestions'][0])
 

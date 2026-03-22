@@ -52,14 +52,10 @@ def profile_page(request):
 @ensure_csrf_cookie
 def auto_complete(request):
     """
-    Return multi-word phrase suggestions for the authenticated user.
+    Return prefix autocomplete phrase suggestions for the authenticated user.
 
-    Clicking a suggestion navigates to /search?q=<phrase>.
-
-    Two passes (combined, deduplicated, max 8):
-      1. Filename phrases — cleaned filename; full name + context window.
-      2. Content phrases — real sentences from DocumentPhrase (stored at index
-         time via NLTK sent_tokenize) where the sentence contains the query.
+    Suggestions are built by a Trie over user filenames and indexed content
+    phrases. Response shape remains: {'suggestions': [{'phrase': ...}], ...}.
     """
     import re
 

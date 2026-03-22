@@ -38,7 +38,7 @@ The current implementation provides:
 - Authenticated file upload (single or multiple files at once) with validation and soft-delete
 - **Automatic document indexing** — files are indexed in a background thread immediately after upload, building a TF-IDF inverted index stored in PostgreSQL
 - **Document search** — `POST /api/search` queries the inverted index and returns the user's matching files ranked by TF-IDF score; each result links directly to the file; returns a clear "no match" message when nothing is found
-- **Autocomplete** — `GET /api/autocomplete` returns the user's actual matching files (by filename and indexed content) in real time; clicking a suggestion opens the file in a new tab
+- **Autocomplete** — `GET /api/autocomplete` uses a Trie-backed prefix engine (filenames + indexed phrases) and returns up to 8 phrase suggestions in real time
 - **Profile page** — `/profile/me` lets users view, upload, rename, and delete their own files
 - A server-side rendered home page, search results page, and profile page backed by a REST API
 
@@ -89,6 +89,7 @@ lore-search-engine/
 │       ├── models.py            # InvertedIndex model (single index table)
 │       ├── extractor.py         # Text extraction per file type (PDF/DOCX/MD/TXT/image)
 │       ├── tokenizer.py         # Lowercasing, stop-word removal, Porter stemming
+│       ├── trie.py              # PrefixTrie implementation for autocomplete
 │       ├── pipeline.py          # index_document() — full indexing orchestration
 │       ├── services.py          # IndexerService (user-scoped search & query helpers)
 │       ├── admin.py             # Django admin registration
@@ -189,13 +190,13 @@ The project package containing settings, root URLs, and the core API views.
 
 #### `backend/views.py`
 
-| View function   | Route                   | Description                                                                                                               |
-|-----------------|-------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| `home_page`     | `GET /`                 | Renders `home_page.html` with a `timestamp` context variable                                                              |
-| `search_page`   | `GET /search/`          | Renders `search_page.html` with `timestamp` and `query` context variables                                                 |
-| `profile_page`  | `GET /profile/me`       | Renders `profile_page.html`; auth-guarded client-side                                                                     |
-| `auto_complete` | `GET /api/autocomplete` | Authenticates via Token header; searches user's files by filename and indexed terms; returns up to 8 matching suggestions |
-| `search`        | `POST /api/search`      | Authenticates via Token header, queries `IndexerService`, returns ranked file results                                     |
+| View function   | Route                   | Description                                                                                                           |
+|-----------------|-------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `home_page`     | `GET /`                 | Renders `home_page.html` with a `timestamp` context variable                                                          |
+| `search_page`   | `GET /search/`          | Renders `search_page.html` with `timestamp` and `query` context variables                                             |
+| `profile_page`  | `GET /profile/me`       | Renders `profile_page.html`; auth-guarded client-side                                                                 |
+| `auto_complete` | `GET /api/autocomplete` | Authenticates via Token header; uses `AutocompleteService` + `PrefixTrie` to return up to 8 prefix phrase suggestions |
+| `search`        | `POST /api/search`      | Authenticates via Token header, queries `IndexerService`, returns ranked file results                                 |
 
 All page views set `no-cache` headers to prevent stale static assets during development.
 
@@ -285,6 +286,14 @@ UploadedFile (status=pending)
 | `get_index_stats(user)`                | `total_entries`, `unique_terms`, `indexed_documents` counts                               |
 | `delete_document_index(user, file_id)` | Delete all index rows for a file; called automatically on soft-delete                     |
 
+#### `services.py` — `AutocompleteService`
+
+| Method                        | Description                                                                                 |
+|-------------------------------|---------------------------------------------------------------------------------------------|
+| `get_suggestions(user, q, n)` | Builds a user-scoped Trie from filename/content phrases and returns top `n` prefix matches  |
+| `_filename_phrases(filename)` | Normalizes filename and emits phrase windows used as Trie entries                           |
+| `_build_user_trie(user)`      | Loads `UploadedFile` + `DocumentPhrase` rows and inserts weighted entries into `PrefixTrie` |
+
 #### `management/commands/reindex.py`
 
 CLI tool for backfilling and corpus re-scoring:
@@ -351,7 +360,7 @@ Renders the profile page for the currently authenticated user.
 
 #### `GET /api/autocomplete`
 
-Returns up to 8 autocomplete suggestions for the authenticated user's files as they type. Sets a CSRF cookie on response.
+Returns up to 8 autocomplete phrase suggestions for the authenticated user's corpus as they type. Sets a CSRF cookie on response.
 
 **Authentication:** `Authorization: Token <token>` header required. Returns an empty suggestions list if the token is missing or invalid (no `401` — safe to call while typing).
 
@@ -361,32 +370,25 @@ Returns up to 8 autocomplete suggestions for the authenticated user's files as t
 |-----------|--------|----------|----------------------|
 | `q`       | string | ❌        | Partial search query |
 
-**Search strategy (two passes, deduplicated):**
+**Search strategy (Trie-backed prefix matching):**
 
-1. **Filename match** — `UploadedFile.original_filename` case-insensitive contains `q`; ordered by most recently uploaded; all non-deleted statuses included.
-2. **Content match** — tokenizes `q` and looks up matching `InvertedIndex` terms ordered by TF-IDF score; only `processed` files; excludes files already returned by pass 1.
+1. Build a user-scoped Trie from cleaned filename phrases (higher weight) and indexed `DocumentPhrase` content (secondary weight).
+2. Normalize the query and traverse the Trie by prefix.
+3. Return top-k ranked phrase suggestions (deduplicated).
 
 **Response:** `200 OK`
 
 ```json
 {
   "suggestions": [
-    {
-      "title": "research_paper.pdf",
-      "file_url": "http://localhost:8000/media/uploads/2026/03/12/research_paper.pdf",
-      "file_type": "pdf"
-    },
-    {
-      "title": "notes.md",
-      "file_url": "http://localhost:8000/media/uploads/2026/03/01/notes.md",
-      "file_type": "md"
-    }
+    { "phrase": "machine learning notes" },
+    { "phrase": "machine learning from first principles" }
   ],
   "csrf_token": "<csrf_token>"
 }
 ```
 
-> Clicking a suggestion in the frontend opens the file directly in a new tab via `file_url`.
+> Frontend uses the selected `phrase` as the next search query.
 ```
 
 ---
@@ -974,7 +976,7 @@ The frontend is a server-rendered multi-page application served directly by Djan
 
 **Behaviour:**
 1. Renders a centered search input and a drag-and-drop file upload area below it.
-2. As the user types (debounced at **250 ms**), `index.js` calls `GET /api/autocomplete?q=<query>` and renders matching file suggestions in a dropdown. Each suggestion shows the filename and a file type badge; clicking opens the file in a new tab.
+2. As the user types (debounced at **250 ms**), `index.js` calls `GET /api/autocomplete?q=<query>` and renders phrase suggestions from the Trie-backed backend. Selecting one navigates to `/search?q=<phrase>`.
 3. Pressing **Enter** or clicking the search button navigates to `/search?q=<query>`.
 4. The upload area accepts multiple files via drag-and-drop or the native file picker (`multiple` attribute). All selected files are sent in a single `POST /api/upload/` request. Each file gets an inline status row showing upload progress and the result (✅ queued / ❌ error).
 5. A "My Files" link and a "Sign out" button are injected into the top-right corner on page load.
@@ -990,7 +992,7 @@ The frontend is a server-rendered multi-page application served directly by Djan
 
 **Behaviour:**
 1. On page load, reads `?q=` from the URL and immediately fires `POST /api/search` to display initial results.
-2. As the user refines the query (debounced at **250 ms**), the autocomplete dropdown calls `GET /api/autocomplete?q=<query>` and shows matching files; clicking opens the file in a new tab.
+2. As the user refines the query (debounced at **250 ms**), the autocomplete dropdown calls `GET /api/autocomplete?q=<query>` and shows phrase suggestions; clicking one runs search with that phrase.
 3. Pressing **Enter** or clicking the search button fires `POST /api/search` and replaces the results list.
 4. The URL `?q=` parameter is updated via `history.replaceState` without a page reload.
 5. Each result card displays: the filename (clickable link that opens the file in a new tab), file type badge, and matched terms. The TF-IDF score is returned by the API but not shown in the UI.
@@ -1134,9 +1136,12 @@ pytest --cov
 
 ### `IndexerTestCase` (`apps/indexer/tests.py`)
 
-| Test                              | Area                      | Scenario                                       |
-|-----------------------------------|---------------------------|------------------------------------------------|
-| `test_tokenizer_basic`            | Tokenization              | Stop-words removed, content words retained     |
-| `test_tokenizer_with_positions`   | Token position indexing   | Positional map is generated                    |
-| `test_index_stats_empty`          | Index statistics          | Empty corpus returns zero counts               |
-| `test_extract_text_supports_txt`  | Text extraction (`txt`)   | Plain text files are extracted for indexing    |
+| Test                                                  | Area                      | Scenario                                          |
+|-------------------------------------------------------|---------------------------|---------------------------------------------------|
+| `test_tokenizer_basic`                                | Tokenization              | Stop-words removed, content words retained        |
+| `test_tokenizer_with_positions`                       | Token position indexing   | Positional map is generated                       |
+| `test_index_stats_empty`                              | Index statistics          | Empty corpus returns zero counts                  |
+| `test_extract_text_supports_txt`                      | Text extraction (`txt`)   | Plain text files are extracted for indexing       |
+| `test_prefix_trie_returns_ranked_prefix_matches`      | Trie prefix ranking       | Higher-weight prefix matches are returned first   |
+| `test_autocomplete_service_uses_trie_prefix_matching` | Autocomplete service      | User suggestions are resolved through Trie        |
+| `test_autocomplete_endpoint_returns_phrase_objects`   | Autocomplete API contract | Endpoint returns `suggestions` with `phrase` keys |
