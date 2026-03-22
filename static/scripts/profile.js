@@ -311,9 +311,29 @@ $(function () {
     // Drop zone
     const $dropZone  = $('#drop-zone');
     const $fileInput = $('#file-input');
+    const $browseBtn = $('#browse-trigger');
+    const fileInputEl = $fileInput.get(0);
+
+    const openFilePicker = () => {
+        if (fileInputEl) fileInputEl.click();
+    };
+
+    $browseBtn.on('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openFilePicker();
+    });
 
     $dropZone.on('click keydown', function (e) {
-        if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') $fileInput.trigger('click');
+        if (e.type === 'click') {
+            openFilePicker();
+            return;
+        }
+
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openFilePicker();
+        }
     });
     $dropZone.on('dragover dragenter', e => { e.preventDefault(); $dropZone.addClass('drag-over'); });
     $dropZone.on('dragleave drop', function (e) {

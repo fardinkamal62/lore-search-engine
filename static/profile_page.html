@@ -51,7 +51,10 @@
              class="drop-zone text-center p-4 rounded border border-2 text-muted"
              role="button" tabindex="0" aria-label="Upload files">
             <i class="fa-solid fa-cloud-arrow-up fa-2x mb-2"></i>
-            <div>Drag &amp; drop files here or <span class="text-primary" style="cursor:pointer">browse</span></div>
+            <div>
+                Drag &amp; drop files here or
+                <button type="button" id="browse-trigger" class="btn btn-link p-0 align-baseline text-primary">browse</button>
+            </div>
             <small>PDF, DOCX, PNG, JPG, MD &mdash; up to 20 MB each</small>
             <input type="file" id="file-input" multiple accept=".pdf,.docx,.png,.jpg,.jpeg,.md" class="d-none">
         </div>
