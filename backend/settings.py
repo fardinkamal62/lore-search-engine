@@ -14,6 +14,8 @@ DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=['https://*.replit.dev', 'https://*.replit.app'])
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
